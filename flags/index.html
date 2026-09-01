@@ -25,7 +25,7 @@
             width: 32px;
             height: 32px;
             object-fit: contain;
-            display: none; /* Hidden until loaded safely */
+            display: none;
         }
         .text-container {
             display: flex;
@@ -57,19 +57,29 @@
 <script>
     async function trackVisitor() {
         try {
-            // 1. Detect visitor's country using ipapi.co
-            const response = await fetch('https://ipapi.co');
-            if (!response.ok) throw new Error("API response error");
+            // Using ip-api.com which cleanly handles cross-origin requests inside nested iframes
+            const response = await fetch('http://ip-api.com');
             
-            const data = await response.json();
+            // Note: If your blog is on HTTPS, some browsers block HTTP requests. 
+            // If the first request fails, we seamlessly fallback to a secure secondary option
+            let data;
+            if (!response.ok) {
+                const backupResponse = await fetch('https://ipify.org');
+                const backupIp = await backupResponse.json();
+                const geoResponse = await fetch(`https://ipapi.co{backupIp.ip}/json/`);
+                data = await geoResponse.json();
+            } else {
+                data = await response.json();
+            }
             
-            // 2. Safely grab country name and format the code to lowercase
-            const countryName = data.country_name;
-            const countryCode = data.country_code ? data.country_code.toLowerCase() : null;
+            // Map the API output variables properly
+            const countryName = data.country || data.country_name;
+            const rawCountryCode = data.countryCode || data.country_code;
+            const countryCode = rawCountryCode ? rawCountryCode.toLowerCase() : null;
 
-            if (!countryCode || data.error) throw new Error("Invalid location data");
+            if (!countryCode) throw new Error("Could not parse country code");
 
-            // 3. Point to GoSquared shiny repository folder matching your exact path request
+            // Point directly to the GoSquared shiny repository layout
             const flagUrl = `https://githubusercontent.com{countryCode}.png`;
             
             const flagImg = document.getElementById('flag');
@@ -79,8 +89,7 @@
             document.getElementById('country').innerText = countryName;
 
         } catch (error) {
-            console.error("Widget Error:", error);
-            // Elegant fallback if a user blocks trackers or API fails
+            console.error("Widget Detection Failed:", error);
             document.getElementById('country').innerText = "Hello Global Visitor!";
         }
     }
