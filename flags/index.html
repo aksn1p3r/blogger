@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: transparent;
+            color: #333;
+        }
+        .widget-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            width: fit-content;
+        }
+        .flag-img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+        .text-container {
+            display: flex;
+            flex-direction: column;
+        }
+        .country-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .visitor-count {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="widget-container">
+    <!-- Flag will load here -->
+    <img id="flag" class="flag-img" src="" alt="Loading..." style="display:none;"/>
+    <div class="text-container">
+        <span id="country" class="country-name">Detecting location...</span>
+        <span id="count" class="visitor-count"></span>
+    </div>
+</div>
+
+<script>
+    async function trackVisitor() {
+        try {
+            // 1. Detect visitor's country code using a free Geolocation API
+            const geoResponse = await fetch('https://ipapi.co');
+            const geoData = await geoResponse.json();
+            
+            const countryCode = geoData.country_code; // e.g., "US", "ZA"
+            const countryName = geoData.country_name;
+
+            if (!countryCode) throw new Error("Country not detected");
+
+            // 2. Set the GoSquared flag image source using their raw GitHub path
+            // GoSquared repository uses uppercase 2-letter codes (e.g., US.png) inside the size folder (e.g., 32)
+            const flagUrl = `https://githubusercontent.com{countryCode}.png`;
+            const flagImg = document.getElementById('flag');
+            flagImg.src = flagUrl;
+            flagImg.style.display = 'block';
+
+            document.getElementById('country').innerText = countryName;
+
+            // 3. Update and fetch the global count for this specific country using CountAPI
+            // Replace 'yourblogname' with your actual blog's name to keep your namespace unique
+            const namespace = "yourblogname_country_counter"; 
+            const countResponse = await fetch(`https://countapi.xyz{namespace}/${countryCode}`);
+            const countData = await countResponse.json();
+
+            document.getElementById('count').innerText = `Visitors from here: ${countData.value}`;
+
+        } catch (error) {
+            console.error("Error loading widget data:", error);
+            document.getElementById('country').innerText = "Welcome Visitor!";
+        }
+    }
+
+    trackVisitor();
+</script>
+
+</body>
+</html>
