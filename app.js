@@ -998,25 +998,26 @@
               <h2>${title}</h2>
               <b:if cond='data:posts.empty'><p><data:messages.noResultsFound/></p></b:if>
               <div class='post-grid'>
-                <b:loop values='data:posts' var='post' index='postIndex'>
-                  <article class='post-card'>
-                    <b:if cond='data:post.featuredImage'>
-                      <a expr:href='data:post.url'>
-                        <b:if cond='data:postIndex == 0'>
-                          <img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' expr:srcset='sourceSet(data:post.featuredImage, [320, 640, 960], "16:9")' sizes='(max-width: 760px) 100vw, (max-width: 1120px) 50vw, 360px' width='640' height='360' loading='eager' fetchpriority='high'/>
-                        <b:else/>
-                          <img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' expr:srcset='sourceSet(data:post.featuredImage, [320, 640, 960], "16:9")' sizes='(max-width: 760px) 100vw, (max-width: 1120px) 50vw, 360px' width='640' height='360' loading='lazy'/>
-                        </b:if>
-                      </a>
-                    </b:if>
-                    <h2><a expr:href='data:post.url'><data:post.title/></a></h2>
-                    <p class='post-meta'>
-                      <span class='post-author'><data:post.author.name/></span>
-                      <time expr:datetime='data:post.date.iso8601'><data:post.date/></time>
-                    </p>
-                    <p><data:post.snippets.short/></p>
-                  </article>
-                </b:loop>
+                <b:with value='data:posts first (p => p.featuredImage)' var='firstImagePost'>
+                  <b:loop values='data:posts' var='post'>
+                    <article class='post-card'>
+                      <b:if cond='data:post.featuredImage'>
+                        <a expr:href='data:post.url'>
+                          <img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' expr:srcset='sourceSet(data:post.featuredImage, [320, 640, 960], "16:9")' sizes='(max-width: 760px) 100vw, (max-width: 1120px) 50vw, 360px' width='640' height='360' decoding='async'>
+                            <b:attr expr:value='data:post.id == data:firstImagePost.id ? "eager" : "lazy"' name='loading'/>
+                            <b:attr cond='data:post.id == data:firstImagePost.id' name='fetchpriority' value='high'/>
+                          </img>
+                        </a>
+                      </b:if>
+                      <h2><a expr:href='data:post.url'><data:post.title/></a></h2>
+                      <p class='post-meta'>
+                        <span class='post-author'><data:post.author.name/></span>
+                        <time expr:datetime='data:post.date.iso8601'><data:post.date/></time>
+                      </p>
+                      <p><data:post.snippets.short/></p>
+                    </article>
+                  </b:loop>
+                </b:with>
               </div>
               <nav class='pager' aria-label='Post pages'>
                 <b:if cond='data:newerPageUrl'><a expr:href='data:newerPageUrl'>Newer posts</a></b:if>
