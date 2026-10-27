@@ -21,6 +21,7 @@
     oswald: "Oswald",
   };
   const googleFontWeights = "400;500;600;700";
+  const maxBlockInstances = { header: 1, blog: 1, layout: 1, sidebar: 4, footer: 2, analytics: 1 };
   const samples = {
     header: {
       title: "Field Notes",
@@ -39,6 +40,7 @@
       label: "Explore the stories",
       url: "#stories",
     },
+    analytics: { measurementId: "" },
     blog: { title: "Latest stories" },
     sidebar: { title: "Gadget area" },
     layout: {
@@ -49,6 +51,31 @@
     },
   };
 
+  function createDefaultDesign() {
+    return {
+      background: "#ffffff",
+      ink: "#202124",
+      accent: "#6558d3",
+      font: "system",
+      googleFont: "",
+      width: 1120,
+      siteTitleColor: "#202124",
+      siteTitleFont: "theme",
+      siteTitleSize: 36,
+      headingColor: "#202124",
+      headingFont: "theme",
+      headingSize: 20,
+      postTitleColor: "#202124",
+      postTitleFont: "theme",
+      postTitleSize: 18,
+      bodySize: 16,
+      linkColor: "#6558d3",
+      linkHoverColor: "#5748c2",
+      footerBackground: "#ffffff",
+      footerText: "#858b9a",
+    };
+  }
+
   const state = {
     name: "My Blogger theme",
     page: "home",
@@ -56,14 +83,7 @@
     view: "design",
     selectedId: null,
     blocks: [],
-    design: {
-      background: "#ffffff",
-      ink: "#202124",
-      accent: "#6558d3",
-      font: "system",
-      googleFont: "",
-      width: 1120,
-    },
+    design: createDefaultDesign(),
   };
 
   const elements = {
@@ -126,6 +146,15 @@
     return safeGoogleFontFamily(state.design.googleFont) || googleFontFamilies[state.design.font] || "";
   }
 
+  function selectedGoogleFonts() {
+    return [...new Set([
+      selectedGoogleFont(),
+      googleFontFamilies[state.design.siteTitleFont],
+      googleFontFamilies[state.design.headingFont],
+      googleFontFamilies[state.design.postTitleFont],
+    ].filter(Boolean))];
+  }
+
   function fontStackForDesign() {
     const googleFont = selectedGoogleFont();
     return googleFont
@@ -133,10 +162,19 @@
       : fontStacks[state.design.font] ?? fontStacks.system;
   }
 
-  function googleFontStylesheetUrl(family) {
-    if (!family) return "";
-    const encodedFamily = encodeURIComponent(family).replaceAll("%20", "+");
-    return `https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@${googleFontWeights}&display=swap`;
+  function fontStackForRole(role) {
+    if (role === "theme") return fontStackForDesign();
+    const googleFont = googleFontFamilies[role];
+    return googleFont ? `"${googleFont}", ${fontStacks.system}` : fontStacks[role] ?? fontStackForDesign();
+  }
+
+  function googleFontStylesheetUrl(families) {
+    if (!families.length) return "";
+    const requests = families.map((family) => {
+      const encodedFamily = encodeURIComponent(family).replaceAll("%20", "+");
+      return `family=${encodedFamily}:wght@${googleFontWeights}`;
+    });
+    return `https://fonts.googleapis.com/css2?${requests.join("&")}&display=swap`;
   }
 
   function blocksInRegion(regionId, columnIndex) {
@@ -185,6 +223,7 @@
       image: "Image",
       button: "Button",
       blog: "Blog posts",
+      analytics: "Google Analytics",
       layout: "Sidebar positions",
       sidebar: "Gadget area",
       footer: "Site footer",
@@ -252,6 +291,16 @@
         link.href = safeUrl(block.url);
         break;
       }
+      case "analytics": {
+        content = document.createElement("aside");
+        content.className = "preview-analytics";
+        const validId = /^G-[A-Z0-9]{6,}$/i.test(block.measurementId.trim());
+        addText(content, "strong", "Google Analytics", "");
+        addText(content, "small", validId
+          ? `Tracking enabled · ${block.measurementId.trim()}`
+          : "Setup only · enter a GA4 measurement ID in the settings", "");
+        break;
+      }
       case "blog": {
         content = document.createElement("section");
         content.className = `preview-blog${state.page === "post" ? " is-post" : ""}${state.page === "search" ? " is-search" : ""}`;
@@ -272,8 +321,13 @@
           image.className = `sample-image${index === 1 ? " image-two" : ""}`;
           image.setAttribute("aria-hidden", "true");
           card.append(image);
-          addText(card, "h3", title, "");
+          const titleHeading = document.createElement("h3");
+          const titleLink = addText(titleHeading, "a", title, "");
+          titleLink.href = "#";
+          card.append(titleHeading);
           addText(card, "p", summary, "");
+          const storyLink = addText(card, "a", "Read story", "preview-post-link");
+          storyLink.href = "#";
           grid.append(card);
         });
         content.append(grid);
@@ -433,8 +487,22 @@
     elements.preview.style.setProperty("--preview-accent", state.design.accent);
     elements.preview.style.setProperty("--preview-font", fontStackForDesign());
     elements.preview.style.setProperty("--preview-width", `${state.design.width}px`);
+    elements.preview.style.setProperty("--preview-title-color", state.design.siteTitleColor);
+    elements.preview.style.setProperty("--preview-title-font", fontStackForRole(state.design.siteTitleFont));
+    elements.preview.style.setProperty("--preview-title-size", `${state.design.siteTitleSize}px`);
+    elements.preview.style.setProperty("--preview-heading-color", state.design.headingColor);
+    elements.preview.style.setProperty("--preview-heading-font", fontStackForRole(state.design.headingFont));
+    elements.preview.style.setProperty("--preview-heading-size", `${state.design.headingSize}px`);
+    elements.preview.style.setProperty("--preview-post-title-color", state.design.postTitleColor);
+    elements.preview.style.setProperty("--preview-post-title-font", fontStackForRole(state.design.postTitleFont));
+    elements.preview.style.setProperty("--preview-post-title-size", `${state.design.postTitleSize}px`);
+    elements.preview.style.setProperty("--preview-body-size", `${state.design.bodySize}px`);
+    elements.preview.style.setProperty("--preview-link", state.design.linkColor);
+    elements.preview.style.setProperty("--preview-link-hover", state.design.linkHoverColor);
+    elements.preview.style.setProperty("--preview-footer-bg", state.design.footerBackground);
+    elements.preview.style.setProperty("--preview-footer-text", state.design.footerText);
     const fontLinkId = "google-font-stylesheet";
-    const fontUrl = googleFontStylesheetUrl(selectedGoogleFont());
+    const fontUrl = googleFontStylesheetUrl(selectedGoogleFonts());
     let fontLink = document.getElementById(fontLinkId);
     if (fontUrl) {
       if (!fontLink) {
@@ -447,13 +515,91 @@
     } else {
       fontLink?.remove();
     }
-    document.querySelector("#setting-background").value = state.design.background;
-    document.querySelector("#setting-ink").value = state.design.ink;
-    document.querySelector("#setting-accent").value = state.design.accent;
-    document.querySelector("#setting-font").value = state.design.font;
-    document.querySelector("#setting-google-font").value = state.design.googleFont;
-    document.querySelector("#setting-width").value = state.design.width;
+    document.querySelectorAll("[data-design]").forEach((input) => {
+      input.value = state.design[input.dataset.design];
+      if (input.type === "color") {
+        const picker = input.closest(".color-picker-control");
+        picker.style.setProperty("--swatch-color", input.value);
+        picker.querySelector(".color-picker-value").textContent = input.value.toUpperCase();
+      }
+    });
     document.querySelector("#width-output").value = state.design.width;
+    document.querySelectorAll("[data-design-output]").forEach((output) => {
+      output.value = state.design[output.dataset.designOutput];
+    });
+  }
+
+  function initializeColorPickers() {
+    document.querySelectorAll('.setting-row input[type="color"]').forEach((input) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "color-picker-control";
+      const swatch = document.createElement("button");
+      swatch.type = "button";
+      swatch.className = "color-swatch";
+      swatch.setAttribute("aria-label", input.getAttribute("aria-label") || "Choose color");
+      swatch.setAttribute("aria-haspopup", "dialog");
+      swatch.setAttribute("aria-expanded", "false");
+
+      const popover = document.createElement("div");
+      popover.className = "color-picker-popover";
+      popover.id = `${input.id}-popover`;
+      popover.setAttribute("role", "dialog");
+      popover.setAttribute("aria-label", `${input.getAttribute("aria-label") || "Color"} picker`);
+      popover.hidden = true;
+      swatch.setAttribute("aria-controls", popover.id);
+
+      const value = document.createElement("span");
+      value.className = "color-picker-value";
+      value.textContent = input.value.toUpperCase();
+      const done = document.createElement("button");
+      done.type = "button";
+      done.className = "color-picker-done";
+      done.setAttribute("aria-label", "Apply color and close picker");
+      done.title = "Apply color";
+      done.textContent = "✓";
+
+      input.className = "color-picker-input";
+      input.tabIndex = -1;
+      wrapper.style.setProperty("--swatch-color", input.value);
+      input.parentElement.replaceChild(wrapper, input);
+      popover.append(input, value, done);
+      wrapper.append(swatch, popover);
+
+      swatch.addEventListener("click", () => {
+        document.querySelectorAll(".color-picker-popover:not([hidden])").forEach((openPopover) => {
+          openPopover.hidden = true;
+          openPopover.parentElement.querySelector(".color-swatch").setAttribute("aria-expanded", "false");
+        });
+        popover.hidden = false;
+        swatch.setAttribute("aria-expanded", "true");
+        if (typeof input.showPicker === "function") input.showPicker();
+        else input.click();
+      });
+
+      done.addEventListener("click", () => {
+        popover.hidden = true;
+        swatch.setAttribute("aria-expanded", "false");
+        swatch.focus();
+      });
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (event.target.closest(".color-picker-control")) return;
+      document.querySelectorAll(".color-picker-popover:not([hidden])").forEach((popover) => {
+        popover.hidden = true;
+        popover.parentElement.querySelector(".color-swatch").setAttribute("aria-expanded", "false");
+      });
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      document.querySelectorAll(".color-picker-popover:not([hidden])").forEach((popover) => {
+        popover.hidden = true;
+        const swatch = popover.parentElement.querySelector(".color-swatch");
+        swatch.setAttribute("aria-expanded", "false");
+        swatch.focus();
+      });
+    });
   }
 
   function renderCanvas() {
@@ -461,11 +607,38 @@
     applyDesign();
     renderPage();
     elements.count.textContent = String(state.blocks.filter((block) => block.type !== "layout").length);
-    document.querySelector("#add-blog").disabled = state.blocks.some((block) => block.type === "blog");
-    document.querySelector('[data-block-type="header"]').disabled = state.blocks.some((block) => block.type === "header");
-    document.querySelector('[data-block-type="sidebar"]').disabled = state.blocks.filter((block) => block.type === "sidebar").length >= 4;
+    renderBlockLibrary();
     renderInspector();
     updateExportCode();
+  }
+
+  function renderBlockLibrary() {
+    document.querySelectorAll(".library-entry").forEach((entry) => {
+      const type = entry.dataset.libraryType;
+      const blocks = state.blocks.filter((block) => block.type === type);
+      const count = blocks.length;
+      const limit = maxBlockInstances[type];
+      const complete = Number.isFinite(limit) && count >= limit;
+      const addButton = entry.querySelector("[data-block-type]");
+      const status = entry.querySelector(".library-status");
+      const removeButton = entry.querySelector("[data-remove-type]");
+
+      entry.classList.toggle("complete", complete);
+      entry.classList.toggle("partial", count > 0 && !complete);
+      addButton.disabled = complete;
+      addButton.setAttribute("aria-label", count
+        ? `${getBlockLabel(type)}${Number.isFinite(limit) ? `, ${count} of ${limit} added` : `, ${count} added`}${complete ? ", complete" : ", add another"}`
+        : `Add ${getBlockLabel(type)}`);
+      status.textContent = complete ? "✓" : count > 0
+        ? Number.isFinite(limit) ? `${count}/${limit}` : String(count)
+        : "+";
+      status.setAttribute("aria-label", complete ? "Complete" : count > 0 ? `${count} added` : "Add");
+      removeButton.hidden = count === 0;
+      removeButton.setAttribute("aria-label", count > 1
+        ? `Remove last ${getBlockLabel(type).toLowerCase()}`
+        : `Remove ${getBlockLabel(type).toLowerCase()}`);
+      removeButton.title = removeButton.getAttribute("aria-label");
+    });
   }
 
   function renderPreview() {
@@ -545,6 +718,15 @@
     } else if (block.type === "button") {
       group.append(createField("Button label", "label", block.label, { maxLength: 80 }));
       group.append(createField("Link URL", "url", block.url, { placeholder: "https://example.com" }));
+    } else if (block.type === "analytics") {
+      group.append(createField("GA4 measurement ID", "measurementId", block.measurementId, {
+        maxLength: 30,
+        placeholder: "G-XXXXXXXXXX",
+      }));
+      const hint = document.createElement("p");
+      hint.className = "field-hint";
+      hint.textContent = "Paste the GA4 Measurement ID from Google Analytics. The exported theme inserts Google's standard tracking script in the page head; this setup block is not shown to blog visitors.";
+      group.append(hint);
     } else if (block.type === "blog") {
       group.append(createField("Section heading", "title", block.title, { maxLength: 100 }));
       const hint = document.createElement("p");
@@ -634,15 +816,25 @@
       setStatus("Only gadget areas can be placed in a sidebar. Other sections stay in the main content.", true);
       return;
     }
-    const singleInstanceTypes = new Set(["header", "blog", "layout"]);
-    if (singleInstanceTypes.has(type) && state.blocks.some((block) => block.type === type)) {
-      setStatus(`Only one ${getBlockLabel(type)} block can be added.`, true);
+    const typeCount = state.blocks.filter((block) => block.type === type).length;
+    const instanceLimit = maxBlockInstances[type];
+    if (Number.isFinite(instanceLimit) && typeCount >= instanceLimit) {
+      setStatus(`All ${instanceLimit} ${getBlockLabel(type).toLowerCase()}${instanceLimit === 1 ? "" : "s"} are already added.`, true);
       return;
     }
     const block = makeBlock(type);
     if (type === "header" && region?.placement === "top") block.placement = "top";
     if (type === "footer") {
-      block.placement = region?.placement === "page-bottom" ? "page-bottom" : "main-bottom";
+      const requestedPlacement = region?.placement;
+      const occupiedPlacements = new Set(state.blocks
+        .filter((item) => item.type === "footer")
+        .map((item) => item.placement === "page-bottom" ? "page-bottom" : "main-bottom"));
+      if (requestedPlacement && occupiedPlacements.has(requestedPlacement)) {
+        setStatus("A footer already occupies that position. Choose the other footer position.", true);
+        return;
+      }
+      block.placement = requestedPlacement
+        || (occupiedPlacements.has("main-bottom") ? "page-bottom" : "main-bottom");
     }
     if (type === "layout") {
       ensureSidebarLayout(block);
@@ -667,6 +859,24 @@
     state.selectedId = block.id;
     renderCanvas();
     markDirty(`${getBlockLabel(type)} added`);
+  }
+
+  function removeBlockById(blockId, message = "Block removed") {
+    const index = state.blocks.findIndex((block) => block.id === blockId);
+    if (index < 0) return false;
+    const [removed] = state.blocks.splice(index, 1);
+    if (removed.type === "layout") {
+      state.blocks.forEach((block) => {
+        if (block.regionId === removed.id) {
+          delete block.regionId;
+          delete block.columnIndex;
+        }
+      });
+    }
+    if (state.selectedId === removed.id) state.selectedId = null;
+    renderCanvas();
+    markDirty(message);
+    return true;
   }
 
   function moveBlock(sourceId, targetId, end = false, destination = null) {
@@ -759,6 +969,27 @@
     return `<section class='blog-content'>
       <b:section id='theme_section_main' class='main' maxwidgets='1' name='Posts' showaddelement='no'>
         <b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog' version='2' visible='true'>
+          <b:includable id='postMetadataJSON'/>
+          <b:includable id='post-jsonld' var='post'>
+            <script type='application/ld+json'>{
+              "@context": "https://schema.org",
+              "@type": "<b:if cond='data:view.isPage'>WebPage<b:else/>BlogPosting</b:if>",
+              "mainEntityOfPage": "<data:post.url.canonical.jsonEscaped/>",
+              "headline": "<data:post.title.jsonEscaped/>",
+              "description": "<b:eval expr='snippet(data:post.snippets.long, { length: 160, links: false }).jsonEscaped'/>",
+              <b:if cond='data:view.isPost'>
+              "datePublished": "<data:post.date.iso8601.jsonEscaped/>",
+              "dateModified": "<data:post.lastUpdated.iso8601.jsonEscaped/>",
+              </b:if>
+              <b:if cond='data:post.featuredImage'>
+              <b:with value='resizeImage(data:post.featuredImage, 1280, "16:9")' var='image'>
+              "image": { "@type": "ImageObject", "url": "<data:image.jsonEscaped/>", "width": <b:eval expr='data:image.width ?: 1280'/>, "height": <b:eval expr='data:image.height ?: 720'/> },
+              </b:with>
+              </b:if>
+              "author": { "@type": "Person", "name": "<data:post.author.name.jsonEscaped/>", "url": "<b:eval expr='(data:post.author.profileUrl ?: data:blog.homepageUrl.canonical).jsonEscaped'/>" },
+              "publisher": { "@type": "Organization", "name": "<data:blog.title.jsonEscaped/>" }
+            }</script>
+          </b:includable>
           <b:includable id='main'>
             <b:if cond='data:view.isError'>
               <h1>Page not found</h1>
@@ -767,12 +998,22 @@
               <h2>${title}</h2>
               <b:if cond='data:posts.empty'><p><data:messages.noResultsFound/></p></b:if>
               <div class='post-grid'>
-                <b:loop values='data:posts' var='post'>
+                <b:loop values='data:posts' var='post' index='postIndex'>
                   <article class='post-card'>
                     <b:if cond='data:post.featuredImage'>
-                      <a expr:href='data:post.url'><img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' loading='lazy'/></a>
+                      <a expr:href='data:post.url'>
+                        <b:if cond='data:postIndex == 0'>
+                          <img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' expr:srcset='sourceSet(data:post.featuredImage, [320, 640, 960], "16:9")' sizes='(max-width: 760px) 100vw, (max-width: 1120px) 50vw, 360px' width='640' height='360' loading='eager' fetchpriority='high'/>
+                        <b:else/>
+                          <img expr:alt='data:post.title' expr:src='resizeImage(data:post.featuredImage, 640, "16:9")' expr:srcset='sourceSet(data:post.featuredImage, [320, 640, 960], "16:9")' sizes='(max-width: 760px) 100vw, (max-width: 1120px) 50vw, 360px' width='640' height='360' loading='lazy'/>
+                        </b:if>
+                      </a>
                     </b:if>
                     <h2><a expr:href='data:post.url'><data:post.title/></a></h2>
+                    <p class='post-meta'>
+                      <span class='post-author'><data:post.author.name/></span>
+                      <time expr:datetime='data:post.date.iso8601'><data:post.date/></time>
+                    </p>
                     <p><data:post.snippets.short/></p>
                   </article>
                 </b:loop>
@@ -785,7 +1026,12 @@
               <b:loop values='data:posts' var='post'>
                 <article class='post-full'>
                   <h1><data:post.title/></h1>
+                  <p class='post-meta'>
+                    <span class='post-author'><data:post.author.name/></span>
+                    <time expr:datetime='data:post.date.iso8601'><data:post.date/></time>
+                  </p>
                   <div class='post-body'><data:post.body/></div>
+                  <b:include cond='data:view.isSingleItem' data='post' name='post-jsonld'/>
                 </article>
               </b:loop>
             </b:if>
@@ -827,6 +1073,8 @@
         const align = ["left", "center", "right"].includes(block.align) ? block.align : "left";
         return `<div class='button-section' style='text-align:${align}'><a class='theme-button' href='${xmlAttr(safeUrl(block.url))}'>${xmlText(block.label)}</a></div>`;
       }
+      case "analytics":
+        return "";
       case "blog":
         return blogMarkup(block);
       case "layout":
@@ -853,6 +1101,39 @@
       default:
         return "";
     }
+  }
+
+  function buildThemeCss(design, font) {
+    const fontValue = (family, size) => `normal normal ${size}px ${family.replaceAll('"', "'")}`;
+    const variables = `/*
+<Group description="Colors" selector="body">
+  <Variable name="body.background.color" description="Page background" type="color" default="${design.background}"/>
+  <Variable name="body.text.color" description="Body text" type="color" default="${design.ink}"/>
+  <Variable name="accent.color" description="Button color" type="color" default="${design.accent}"/>
+  <Variable name="site.title.color" description="Site title color" type="color" default="${design.siteTitleColor}"/>
+  <Variable name="section.title.color" description="Section heading color" type="color" default="${design.headingColor}"/>
+  <Variable name="post.title.color" description="Post title color" type="color" default="${design.postTitleColor}"/>
+  <Variable name="body.link.color" description="Link color" type="color" default="${design.linkColor}"/>
+  <Variable name="body.link.hover.color" description="Link hover color" type="color" default="${design.linkHoverColor}"/>
+  <Variable name="footer.background.color" description="Footer background" type="color" default="${design.footerBackground}"/>
+  <Variable name="footer.text.color" description="Footer text" type="color" default="${design.footerText}"/>
+</Group>
+<Group description="Fonts" selector="body">
+  <Variable name="body.text.font" description="Body font" type="font" default="${fontValue(font, design.bodySize)}"/>
+  <Variable name="body.text.size" description="Body text size" type="length" default="${design.bodySize}px" min="12px" max="22px"/>
+  <Variable name="site.title.font" description="Site title font" type="font" default="${fontValue(fontStackForRole(design.siteTitleFont), design.siteTitleSize)}"/>
+  <Variable name="site.title.size" description="Site title size" type="length" default="${design.siteTitleSize}px" min="24px" max="48px"/>
+  <Variable name="section.title.font" description="Section heading font" type="font" default="${fontValue(fontStackForRole(design.headingFont), design.headingSize)}"/>
+  <Variable name="section.title.size" description="Section heading size" type="length" default="${design.headingSize}px" min="16px" max="36px"/>
+  <Variable name="post.title.font" description="Post title font" type="font" default="${fontValue(fontStackForRole(design.postTitleFont), design.postTitleSize)}"/>
+  <Variable name="post.title.size" description="Post title size" type="length" default="${design.postTitleSize}px" min="14px" max="30px"/>
+</Group>
+<Group description="Layout" selector="body">
+  <Variable name="layout.width" description="Content width" type="length" default="${design.width}px" min="720px" max="1440px"/>
+</Group>
+*/`;
+    const css = `*{box-sizing:border-box}body{margin:0;color:$(body.text.color);background:$(body.background.color);font:$(body.text.font);font-size:$(body.text.size);line-height:1.6}a{color:$(body.link.color)}a:hover{color:$(body.link.hover.color)}.site-header,.site-footer,.content-section,.image-section,.button-section,.blog-content{width:min(calc(100% - 2rem),$(layout.width));margin-inline:auto}.site-header{padding:2rem 0;border-bottom:1px solid #e6e8ec}    .site-title{margin:0;color:$(site.title.color);font:$(site.title.font);font-size:$(site.title.size);line-height:1.15}.site-title a{color:inherit}.site-description{color:#737987}.content-section{padding:2rem 0}.content-section h2,.blog-content h2,.main-column article h2{color:$(section.title.color);font:$(section.title.font);font-size:$(section.title.size)}.content-section p{max-width:700px;line-height:1.8}.image-section{padding:1rem 0}.image-section img{display:block;width:100%;height:auto;border-radius:10px}.image-section figcaption{color:#777;font-size:.9rem}.button-section{padding:1rem 0}.theme-button{display:inline-block;padding:.7rem 1rem;border-radius:7px;background:$(accent.color);color:#fff;text-decoration:none}.post-title,.card-title,.main-column article h1 a,.main-column article h2 a{color:$(post.title.color);font:$(post.title.font);font-size:$(post.title.size)}.post-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:1.5rem}.post-card img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}.pager{display:flex;justify-content:space-between;margin:2rem 0}.site-footer{padding:1.5rem 0;border-top:1px solid #e6e8ec;background:$(footer.background.color);color:$(footer.text.color)}.site-columns{display:grid;width:min(calc(100% - 2rem),$(layout.width));margin:0 auto;gap:1.5rem;grid-template-columns:minmax(0,1fr)}.site-columns.has-left-sidebar:not(.has-right-sidebar){grid-template-columns:minmax(180px,260px) minmax(0,1fr)}.site-columns.has-right-sidebar:not(.has-left-sidebar){grid-template-columns:minmax(0,1fr) minmax(180px,260px)}.site-columns.has-left-sidebar.has-right-sidebar{grid-template-columns:minmax(180px,240px) minmax(0,1fr) minmax(180px,240px)}.sidebar-column{min-width:0}.sidebar-column .sidebar{width:100%;margin:0 0 1rem}.sidebar-column.has-two-areas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start}.sidebar-column.has-two-areas .sidebar{margin:0}.sidebar-column .sidebar{min-width:0}.sidebar-column .sidebar .widget-content{overflow-wrap:anywhere}@media(max-width:760px){.site-columns{display:flex;flex-direction:column}.site-columns .main-column{order:1}.site-columns .sidebar-left,.site-columns .sidebar-right{order:2}.sidebar-column.has-two-areas{grid-template-columns:minmax(0,1fr)}.post-grid{grid-template-columns:1fr}}`;
+    return `${variables}${css}.site-footer{width:100%}.site-footer>*{width:min(calc(100% - 2rem),$(layout.width));margin-inline:auto}.post-meta{display:flex;flex-wrap:wrap;gap:.35rem .8rem;margin:.35rem 0 .75rem;color:#737987;font-size:.875rem}.post-meta>*+*::before{content:'·';margin-right:.8rem;color:#a0a5b2}.post-card img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}.post-full>h1{color:$(post.title.color);font:$(post.title.font);font-size:$(post.title.size);line-height:1.2}.post-body{overflow-wrap:anywhere}.post-body img,.post-body iframe,.post-body video{max-width:100%}.post-body img{height:auto}.post-body table{max-width:100%;overflow-x:auto}`;
   }
 
   function buildXml() {
@@ -883,7 +1164,7 @@
       .map((block) => blockToXml(block, counters))
       .filter(Boolean)
       .join("\n"));
-    const mainArea = `<main class='main-column'>${mainBlocks || "<b:section id='theme_section_main' class='main' name='Posts' showaddelement='no'><b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog' version='2' visible='true'><b:includable id='main'><b:loop values='data:posts' var='post'><article><h1><a expr:href='data:post.url'><data:post.title/></a></h1><p><data:post.snippets.short/></p></article></b:loop></b:includable></b:widget></b:section>"}${mainFooterMarkup}</main>`;
+    const mainArea = `<main class='main-column'>${mainBlocks || blogMarkup({ title: "Latest stories" })}${mainFooterMarkup}</main>`;
     const hasLeft = sidebarBlocks[0].length + sidebarBlocks[1].length > 0;
     const hasRight = sidebarBlocks[2].length + sidebarBlocks[3].length > 0;
     const hasTwoLeft = sidebarBlocks[0].length + sidebarBlocks[1].length > 1;
@@ -896,9 +1177,15 @@
       : `<div class='site-columns no-sidebar'>${mainArea}</div>`;
     const design = state.design;
     const font = fontStackForDesign();
-    const fontUrl = googleFontStylesheetUrl(selectedGoogleFont());
+    const fontUrl = googleFontStylesheetUrl(selectedGoogleFonts());
     const googleFontImport = fontUrl ? `@import url('${fontUrl}');` : "";
-    const css = `*{box-sizing:border-box}body{margin:0;color:${design.ink};background:${design.background};font:16px/1.6 ${font}}a{color:${design.accent}}.site-header,.site-footer,.content-section,.image-section,.button-section,.blog-content{width:min(calc(100% - 2rem),${design.width}px);margin-inline:auto}.site-header{padding:2rem 0;border-bottom:1px solid #e6e8ec}.site-title{margin:0;font-size:clamp(1.8rem,4vw,2.8rem)}.site-description{color:#737987}.content-section{padding:2rem 0}.content-section p{max-width:700px;line-height:1.8}.image-section{padding:1rem 0}.image-section img{display:block;width:100%;height:auto;border-radius:10px}.image-section figcaption{color:#777;font-size:.9rem}.button-section{padding:1rem 0}.theme-button{display:inline-block;padding:.7rem 1rem;border-radius:7px;background:${design.accent};color:#fff;text-decoration:none}.post-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:1.5rem}.post-card img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}.pager{display:flex;justify-content:space-between;margin:2rem 0}.site-footer{padding:1.5rem 0;border-top:1px solid #e6e8ec}.site-columns{display:grid;width:min(calc(100% - 2rem),${design.width}px);margin:0 auto;gap:1.5rem;grid-template-columns:minmax(0,1fr)}.site-columns.has-left-sidebar:not(.has-right-sidebar){grid-template-columns:minmax(180px,260px) minmax(0,1fr)}.site-columns.has-right-sidebar:not(.has-left-sidebar){grid-template-columns:minmax(0,1fr) minmax(180px,260px)}.site-columns.has-left-sidebar.has-right-sidebar{grid-template-columns:minmax(180px,240px) minmax(0,1fr) minmax(180px,240px)}.sidebar-column{min-width:0}.sidebar-column .sidebar{width:100%;margin:0 0 1rem}.sidebar-column.has-two-areas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start}.sidebar-column.has-two-areas .sidebar{margin:0}.sidebar-column .sidebar{min-width:0}.sidebar-column .sidebar .widget-content{overflow-wrap:anywhere}@media(max-width:760px){.site-columns{display:flex;flex-direction:column}.site-columns .main-column{order:1}.site-columns .sidebar-left,.site-columns .sidebar-right{order:2}.sidebar-column.has-two-areas{grid-template-columns:minmax(0,1fr)}.post-grid{grid-template-columns:1fr}}`;
+    const analyticsBlock = state.blocks.find((block) => block.type === "analytics");
+    const measurementId = analyticsBlock?.measurementId.trim() ?? "";
+    const analyticsMarkup = /^G-[A-Z0-9]{6,}$/i.test(measurementId)
+      ? `<script async='async' src='https://www.googletagmanager.com/gtag/js?id=${xmlAttr(measurementId)}'></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${xmlText(measurementId)}');</script>`
+      : "";
+    const css = buildThemeCss(design, font);
     const layoutResponsiveCss = `.site-columns.no-sidebar{grid-template-columns:minmax(0,1fr)}`;
     const cdataEnd = "]]" + ">";
     return `<?xml version="1.0" encoding="UTF-8" ?>
@@ -908,6 +1195,7 @@
     <meta content='width=device-width, initial-scale=1' name='viewport'/>
     <title><data:view.title.escaped/></title>
     <b:include data='blog' name='all-head-content'/>
+    ${analyticsMarkup}
     <b:skin><![CDATA[${cdataText(googleFontImport + css + layoutResponsiveCss)}${cdataEnd}</b:skin>
     <b:template-skin><![CDATA[body#layout .sidebar{min-height:80px}body#layout .site-columns{display:flex;gap:20px}body#layout .main-column,body#layout .sidebar-column{flex:1;min-width:120px}${cdataEnd}</b:template-skin>
   </head>
@@ -968,7 +1256,7 @@
       return;
     }
     const project = {
-      version: 8,
+      version: 10,
       name: state.name,
       blocks: state.blocks,
       design: state.design,
@@ -987,7 +1275,7 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
       const project = JSON.parse(raw);
-      if (![1, 2, 3, 4, 5, 6, 7, 8].includes(project.version) || !Array.isArray(project.blocks) || !project.design) {
+      if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(project.version) || !Array.isArray(project.blocks) || !project.design) {
         throw new Error("Saved project has an unsupported format.");
       }
       const allowedTypes = new Set(Object.keys(samples));
@@ -1094,13 +1382,38 @@
       if (googleFont.trim() && !safeGoogleFontFamily(googleFont)) {
         throw new Error("Saved project contains an invalid Google Font family name.");
       }
+      const designDefaults = createDefaultDesign();
+      const validThemeFont = (value) => Object.prototype.hasOwnProperty.call(fontStacks, value)
+        || Object.prototype.hasOwnProperty.call(googleFontFamilies, value);
+      const validRoleFont = (value) => value === "theme"
+        || Object.prototype.hasOwnProperty.call(fontStacks, value)
+        || ["inter", "playfair-display", "merriweather"].includes(value);
+      const boundedSize = (value, fallback, min, max) => {
+        const size = Number(value);
+        return Number.isFinite(size) ? Math.max(min, Math.min(max, size)) : fallback;
+      };
       state.design = {
+        ...designDefaults,
         background: colorOrDefault(project.design.background, "#ffffff"),
         ink: colorOrDefault(project.design.ink, "#202124"),
         accent: colorOrDefault(project.design.accent, "#6558d3"),
-        font: Object.prototype.hasOwnProperty.call(fontStacks, project.design.font) ? project.design.font : "system",
+        font: validThemeFont(project.design.font) ? project.design.font : "system",
         googleFont: safeGoogleFontFamily(googleFont),
         width: Number.isFinite(widthValue) ? Math.max(720, Math.min(1440, widthValue)) : 1120,
+        siteTitleColor: colorOrDefault(project.design.siteTitleColor, designDefaults.siteTitleColor),
+        siteTitleFont: validRoleFont(project.design.siteTitleFont) ? project.design.siteTitleFont : designDefaults.siteTitleFont,
+        siteTitleSize: boundedSize(project.design.siteTitleSize, designDefaults.siteTitleSize, 24, 48),
+        headingColor: colorOrDefault(project.design.headingColor, designDefaults.headingColor),
+        headingFont: validRoleFont(project.design.headingFont) ? project.design.headingFont : designDefaults.headingFont,
+        headingSize: boundedSize(project.design.headingSize, designDefaults.headingSize, 16, 36),
+        postTitleColor: colorOrDefault(project.design.postTitleColor, designDefaults.postTitleColor),
+        postTitleFont: validRoleFont(project.design.postTitleFont) ? project.design.postTitleFont : designDefaults.postTitleFont,
+        postTitleSize: boundedSize(project.design.postTitleSize, designDefaults.postTitleSize, 14, 30),
+        bodySize: boundedSize(project.design.bodySize, designDefaults.bodySize, 12, 22),
+        linkColor: colorOrDefault(project.design.linkColor, designDefaults.linkColor),
+        linkHoverColor: colorOrDefault(project.design.linkHoverColor, designDefaults.linkHoverColor),
+        footerBackground: colorOrDefault(project.design.footerBackground, designDefaults.footerBackground),
+        footerText: colorOrDefault(project.design.footerText, designDefaults.footerText),
       };
       state.selectedId = null;
       document.querySelector("#project-name").textContent = state.name;
@@ -1130,6 +1443,12 @@
   }
 
   document.querySelector("#block-library").addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-type]");
+    if (removeButton) {
+      const block = state.blocks.filter((item) => item.type === removeButton.dataset.removeType).slice(-1)[0];
+      if (block) removeBlockById(block.id, `${getBlockLabel(block.type)} removed`);
+      return;
+    }
     const button = event.target.closest("[data-block-type]");
     if (!button || button.disabled) return;
     insertBlock(button.dataset.blockType);
@@ -1157,6 +1476,7 @@
   elements.preview.addEventListener("click", (event) => {
     const target = event.target.closest(".preview-block");
     if (!target) return;
+    if (event.target.closest("a")) event.preventDefault();
     state.selectedId = target.dataset.id;
     renderCanvas();
   });
@@ -1293,26 +1613,14 @@
   });
 
   elements.delete.addEventListener("click", () => {
-    const index = state.blocks.findIndex((block) => block.id === state.selectedId);
-    if (index < 0) return;
-    const [removed] = state.blocks.splice(index, 1);
-    if (removed.type === "layout") {
-      state.blocks.forEach((block) => {
-        if (block.regionId === removed.id) {
-          delete block.regionId;
-          delete block.columnIndex;
-        }
-      });
-    }
-    state.selectedId = null;
-    renderCanvas();
-    markDirty("Block removed");
+    const block = selectedBlock();
+    if (block) removeBlockById(block.id);
   });
 
   document.querySelectorAll("[data-design]").forEach((input) => {
     input.addEventListener("input", () => {
       const key = input.dataset.design;
-      state.design[key] = key === "width" ? Number(input.value) : input.value;
+      state.design[key] = input.type === "range" ? Number(input.value) : input.value;
       applyDesign();
       updateExportCode();
       markDirty("Theme design updated");
@@ -1391,19 +1699,13 @@
       makeBlock("footer"),
     ];
     state.selectedId = null;
-    state.design = {
-      background: "#ffffff",
-      ink: "#202124",
-      accent: "#6558d3",
-      font: "system",
-      googleFont: "",
-      width: 1120,
-    };
+    state.design = createDefaultDesign();
     document.querySelector("#project-name").textContent = state.name;
     renderCanvas();
     markDirty("New theme created");
   });
 
+  initializeColorPickers();
   const restored = loadProject();
   if (!restored) {
     state.blocks = [
